@@ -9,7 +9,7 @@ app = FastAPI(title="Mark Social Auto-Poster MCP")
 security = HTTPBearer()
 
 # Change this to your own secret key later
-API_TOKEN = "my-secret-token-12345"
+API_TOKEN = "TrustNoBitch420"
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if credentials.credentials != API_TOKEN:
