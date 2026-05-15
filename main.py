@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+
+  
+  from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from datetime import datetime
@@ -53,4 +55,4 @@ def send_email_list():
         "status": "success",
         "message": "Email list ready. Send to reallyraisedrough@gmail.com",
         "website": "https://reallyraisedrough.com"
-    }
+    }  
