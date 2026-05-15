@@ -1,5 +1,5 @@
 fastapi
-uvicorn
-pydantic
-psycopg2-binary
+uvicorn[standard]
+sqlmodel
 pydantic[email]
+resend
