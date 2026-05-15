@@ -14,10 +14,12 @@ app = FastAPI(title="Mark MCP Server")
 # ====================== CONFIG ======================
 DATABASE_URL = "sqlite:///./subscribers.db"
 API_KEY = "TrustNoBitch420"
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")   # We'll add this in Render
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
+else:
+    logger.warning("RESEND_API_KEY not found. Emails will not be sent.")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
@@ -31,6 +33,7 @@ class Subscriber(SQLModel, table=True):
 @app.on_event("startup")
 def create_tables():
     SQLModel.metadata.create_all(engine)
+    logger.info("Database initialized")
 
 # ====================== SCHEMAS ======================
 class SubscribeRequest(SQLModel):
@@ -52,6 +55,7 @@ def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     with Session(engine) as session:
+        # Check if already exists
         existing = session.exec(
             select(Subscriber).where(Subscriber.email == data.email)
         ).first()
@@ -68,13 +72,13 @@ def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
         if RESEND_API_KEY:
             try:
                 params = {
-                    "from": "Mark MCP Server <onboarding@resend.dev>",
+                    "from": "Really Raised Rough <onboarding@resend.dev>",
                     "to": [data.email],
-                    "subject": "Welcome! Here's your link to reallyraisedrough.com",
+                    "subject": "Welcome to Really Raised Rough",
                     "html": f"""
                         <h2>Welcome!</h2>
-                        <p>Thank you for subscribing.</p>
-                        <p>Here's your link: <a href="https://reallyraisedrough.com">https://reallyraisedrough.com</a></p>
+                        <p>Thank you for subscribing to Really Raised Rough.</p>
+                        <p>Visit your store here: <a href="https://reallyraisedrough.com">https://reallyraisedrough.com</a></p>
                     """
                 }
                 resend.Emails.send(params)
@@ -83,6 +87,6 @@ def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
                 logger.error(f"Failed to send email: {e}")
 
         return {
-            "message": "Thank you! You've been subscribed and a welcome email was sent.",
+            "message": "Thank you! A welcome email has been sent.",
             "email": data.email
         }
