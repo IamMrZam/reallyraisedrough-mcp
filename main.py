@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from resend 
+from resend import Resend
 
 app = FastAPI(title="Really Raised Rough MCP - Email Service")
 
