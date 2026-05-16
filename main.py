@@ -90,7 +90,7 @@ async def send_welcome_email(data: dict):
         html_content=html
     )
     return {"message": "Email sent", "id": result.get("id")}
-@app.post("/)
+@app.post("/send-welcome")
 def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
