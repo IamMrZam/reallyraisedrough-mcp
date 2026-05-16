@@ -10,7 +10,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Mark MCP Server")
+from fastapi import FastAPI
 
+app = FastAPI()
+
+# ====================== HEALTH CHECK ======================
+@app.get('/health')
+def health_check():
+    return {"status": "healthy", "service": "reallyraisedrough-mcp"}
+# ========================================================
+
+# Your existing routes go below this line...
 # ====================== CONFIG ======================
 DATABASE_URL = "sqlite:///./subscribers.db"
 API_KEY = "TrustNoBitch420"
