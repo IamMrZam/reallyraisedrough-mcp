@@ -1,133 +1,101 @@
-from fastapi import FastAPI, HTTPException, Header
-from sqlmodel import SQLModel, Field, create_engine, Session, select
-from pydantic import EmailStr
-from datetime import datetime
-import logging
 import os
-import resend
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from resend import Resend
 
-resend = Resend(os.environ["RESEND_API_KEY"])
+app = FastAPI(title="Really Raised Rough MCP - Email Service")
+
+# ====================== CORS (Important if calling from your website) ======================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],           # Change this later to your domain for security
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ====================== Resend Setup ======================
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+if not RESEND_API_KEY:
+    print("⚠️ WARNING: RESEND_API_KEY is not set!")
+
+resend_client = Resend(RESEND_API_KEY)
+
 
 def send_email(to_email: str, subject: str, html_content: str):
-    """Send an email using Resend. Use this to drive traffic to Reallyraisedrough.com"""
+    """Send emails to drive traffic to Reallyraisedrough.com"""
+    if not RESEND_API_KEY:
+        return {"error": "RESEND_API_KEY not configured"}
+
     params = {
-        "from": "Really Raised Rough <hello@reallyraisedrough.com>",  # Update after you verify domain
+        "from": "Really Raised Rough <hello@reallyraisedrough.com>",
         "to": [to_email],
         "subject": subject,
         "html": html_content,
     }
-    return resend.emails.send(params)
+    try:
+        email = resend_client.emails.send(params)
+        return {"success": True, "id": email.get("id")}
+    except Exception as e:
+        return {"error": str(e)}
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Mark MCP Server")
-from fastapi import FastAPI
+# ====================== Routes ======================
 
-app = FastAPI()
-
-# ====================== HEALTH CHECK ======================
-@app.get('/health')
-def health_check():
-    return {"status": "healthy", "service": "reallyraisedrough-mcp"}
-    
-# ========================================================
-
-# Your existing routes go below this line...
-# ====================== CONFIG ======================
-DATABASE_URL = "sqlite:///./subscribers.db"
-API_KEY = "TrustNoBitch420"
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-
-if RESEND_API_KEY:
-    resend.api_key = RESEND_API_KEY
-else:
-    logger.warning("RESEND_API_KEY not found. Emails will not be sent.")
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-
-# ====================== DATABASE ======================
-class Subscriber(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    email: str = Field(unique=True, index=True)
-    source: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-@app.on_event("startup")
-def create_tables():
-    SQLModel.metadata.create_all(engine)
-    logger.info("Database initialized")
-
-# ====================== SCHEMAS ======================
-class SubscribeRequest(SQLModel):
-    email: EmailStr
-    source: str | None = "website"
-
-# ====================== ENDPOINTS ======================
 @app.get("/")
-def root():
-    return {
-        "status": "online",
-        "service": "Mark MCP Server",
-        "website": "https://reallyraisedrough.com"
-    }
-@app.post("/send-welcome")          # or use @app.route if you're on Flask
-async def send_welcome_email(data: dict):
-    email = data.get("email")
-    if not email:
-        return {"error": "Email is required"}, 400
+async def root():
+    return {"message": "Really Raised Rough MCP is running 🚀"}
 
-    html = """
-    <h1>Welcome to Really Raised Rough 🌿</h1>
-    <p>Thanks for joining the family. Check out the latest merch and sober living content:</p>
-    <a href="https://reallyraisedrough.com" style="background:#4ade80;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;">Visit ReallyRaisedRough.com →</a>
-    <p>Stay lifted. Stay strong.</p>
-    """
 
-    result = send_email(
-        to_email=email,
-        subject="Welcome to the Really Raised Rough family",
-        html_content=html
-    )
-    return {"message": "Email sent", "id": result.get("id")}
+@app.get("/health")
+async def health():
+    """Health check endpoint - keeps your free Render instance awake"""
+    return {"status": "healthy"}
+
+
 @app.post("/send-welcome")
-def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
+async def send_welcome_email(request: Request):
+    """Send welcome email that drives traffic to Reallyraisedrough.com"""
+    try:
+        data = await request.json()
+        email = data.get("email")
 
-    with Session(engine) as session:
-        # Check if already exists
-        existing = session.exec(
-            select(Subscriber).where(Subscriber.email == data.email)
-        ).first()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
 
-        if existing:
-            return {"message": "You're already subscribed!", "email": data.email}
+        html_content = """
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #166534;">Welcome to the Really Raised Rough family 🌿</h1>
+            <p>Thanks for joining. You're now part of a community that stays lifted and stays sober.</p>
+            
+            <p><strong>Check out the latest merch drop and sober living content:</strong></p>
+            
+            <a href="https://reallyraisedrough.com" 
+               style="display: inline-block; background-color: #4ade80; color: white; 
+                      padding: 14px 28px; text-decoration: none; border-radius: 8px; 
+                      font-weight: bold; margin: 20px 0;">
+                Visit ReallyRaisedRough.com →
+            </a>
+            
+            <p>Stay lifted. Stay strong. Stay you.</p>
+            <p>— The Really Raised Rough Team</p>
+        </div>
+        """
 
-        # Save to database
-        new_subscriber = Subscriber(email=data.email, source=data.source)
-        session.add(new_subscriber)
-        session.commit()
+        result = send_email(
+            to_email=email,
+            subject="Welcome to Really Raised Rough 🌱",
+            html_content=html_content
+        )
+        return result
 
-        # ====================== SEND WELCOME EMAIL ======================
-        if RESEND_API_KEY:
-            try:
-                params = {
-                    "from": "Really Raised Rough <onboarding@resend.dev>",
-                    "to": [data.email],
-                    "subject": "Welcome to Really Raised Rough",
-                    "html": f"""
-                        <h2>Welcome!</h2>
-                        <p>Thank you for subscribing to Really Raised Rough.</p>
-                        <p>Visit your store here: <a href="https://reallyraisedrough.com">https://reallyraisedrough.com</a></p>
-                    """
-                }
-                resend.Emails.send(params)
-                logger.info(f"Welcome email sent to {data.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {e}")
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-        return {
-            "message": "Thank you! A welcome email has been sent.",
-            "email": data.email
-        }
+
+# ====================== Run (for local testing) ======================
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
