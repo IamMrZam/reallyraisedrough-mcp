@@ -4,7 +4,7 @@ from pydantic import EmailStr
 from datetime import datetime
 import logging
 import os
-from resend import Resend
+import Resend from resend
 
 resend = Resend(os.environ["RESEND_API_KEY"])
 
