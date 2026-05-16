@@ -2,9 +2,21 @@ from fastapi import FastAPI, HTTPException, Header
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from pydantic import EmailStr
 from datetime import datetime
-import resend
-import os
 import logging
+import os
+from resend import Resend
+
+resend = Resend(os.environ["RESEND_API_KEY"])
+
+def send_email(to_email: str, subject: str, html_content: str):
+    """Send an email using Resend. Use this to drive traffic to Reallyraisedrough.com"""
+    params = {
+        "from": "Really Raised Rough <hello@reallyraisedrough.com>",  # Update after you verify domain
+        "to": [to_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    return resend.emails.send(params)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +30,7 @@ app = FastAPI()
 @app.get('/health')
 def health_check():
     return {"status": "healthy", "service": "reallyraisedrough-mcp"}
+    
 # ========================================================
 
 # Your existing routes go below this line...
@@ -58,8 +71,26 @@ def root():
         "service": "Mark MCP Server",
         "website": "https://reallyraisedrough.com"
     }
+@app.post("/send-welcome")          # or use @app.route if you're on Flask
+async def send_welcome_email(data: dict):
+    email = data.get("email")
+    if not email:
+        return {"error": "Email is required"}, 400
 
-@app.post("/subscribe")
+    html = """
+    <h1>Welcome to Really Raised Rough 🌿</h1>
+    <p>Thanks for joining the family. Check out the latest merch and sober living content:</p>
+    <a href="https://reallyraisedrough.com" style="background:#4ade80;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;">Visit ReallyRaisedRough.com →</a>
+    <p>Stay lifted. Stay strong.</p>
+    """
+
+    result = send_email(
+        to_email=email,
+        subject="Welcome to the Really Raised Rough family",
+        html_content=html
+    )
+    return {"message": "Email sent", "id": result.get("id")}
+@app.post("/)
 def subscribe_user(data: SubscribeRequest, x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
